@@ -1,4 +1,5 @@
 
+#include <stdio.h>
 
 #include <lua.h>
 #include <lauxlib.h>
@@ -22,31 +23,26 @@ typedef struct l_pcap {
  * @return nothing
  */
 static int set_filter (lua_State *L) {
-	printf ("1,");
-	l_pcap *p = check_pcap (L, 1);
-	printf ("2,");
-	const char *filtstr = luaL_checkstring (L, 2);
-	printf ("3,");
+	l_pcap *p;
+	const char *filtstr;
 	struct bpf_program fp;
-	
-	printf ("4,");
+
+	p = check_pcap (L, 1);
+	filtstr = luaL_checkstring (L, 2);
+
 	if (pcap_compile (p->pcap, &fp, filtstr, 1, 0) == -1) {
-		printf ("5,");
-		return luaL_error (L, "error compiling \"%s\": %s", filtstr, p->errbuf);
+		return luaL_error (L, "error compiling \"%s\": %s", filtstr, pcap_geterr(p->pcap));
 	}
-	printf ("6,");
 	if (pcap_setfilter (p->pcap, &fp) == -1) {
-		printf ("7,");
 		return luaL_error (L, "error installing filter \"%s\": %s", filtstr, p->errbuf);
 	}
-	printf ("8,");
 	return 0;
 }
 
 
 static const luaL_Reg pcap_methods[] = {
 	{ "set_filter", set_filter },
-	
+
 	{ NULL, NULL },
 };
 
@@ -57,8 +53,10 @@ static const luaL_Reg pcap_methods[] = {
 static int new_live_capture (lua_State *L) {
 	const char *dev = luaL_checkstring (L, 1);
 	l_pcap *p = lua_newuserdata (L, sizeof (l_pcap));
-	p->pcap = pcap_open_live (dev, 0, 0, 0, p->errbuf);
-	
+	if ((p->pcap = pcap_open_live (dev, 65535, 0, 0, p->errbuf)) == NULL) {
+		return luaL_error (L, "error creating capture \"%s\": %s", dev, p->errbuf);
+	}
+
 	luaL_getmetatable (L, L_PCAP);
 	lua_setmetatable (L, -2);
 	return 1;
@@ -68,7 +66,7 @@ static int new_live_capture (lua_State *L) {
 
 static const luaL_Reg module_functs[] = {
 	{ "new_live_capture", new_live_capture },
-	
+
 	{ NULL, NULL },
 };
 
