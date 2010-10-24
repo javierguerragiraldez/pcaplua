@@ -15,11 +15,11 @@ CWARNS = -Wall -pedantic \
         -Wshadow \
         -Wwrite-strings
 
-
 CFLAGS = $(CONFIG) $(CWARNS) -std=gnu99 -g -O2 -I/usr/include/lua5.1 -fPIC
+LDFLAGS = -lpcap
 
 %.so: %.o
-	ld -o $@ -shared $<
+	ld $(LDFLAGS) -o $@ -shared $<
 
 
 all : pcaplua.so
