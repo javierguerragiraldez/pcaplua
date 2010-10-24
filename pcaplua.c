@@ -48,19 +48,27 @@ static const luaL_Reg pcap_methods[] = {
 
 /** creates a live capture handle
  * @param dev the device to peek
- * @return pcap userdata object
+ * @param promisc promic mode
+ * @return pcap userdata object, device name used
  */
 static int new_live_capture (lua_State *L) {
-	const char *dev = luaL_checkstring (L, 1);
+	const char *dev = luaL_optstring (L, 1, NULL);
 	l_pcap *p = lua_newuserdata (L, sizeof (l_pcap));
+	if (!dev) {
+		dev = pcap_lookupdev (p->errbuf);
+	}
+	if (!dev) {
+		return luaL_error (L, "no device: %s", p->errbuf);
+	}
 	//TODO: better capture size and to_ms
-	if ((p->pcap = pcap_open_live (dev, 65535, 0, 0, p->errbuf)) == NULL) {
+	if ((p->pcap = pcap_open_live (dev, 65535, lua_toboolean(L,2), 0, p->errbuf)) == NULL) {
 		return luaL_error (L, "error creating capture \"%s\": %s", dev, p->errbuf);
 	}
 
 	luaL_getmetatable (L, L_PCAP);
 	lua_setmetatable (L, -2);
-	return 1;
+	lua_pushstring (L, dev);
+	return 2;
 }
 
 

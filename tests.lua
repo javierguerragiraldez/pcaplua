@@ -1,4 +1,5 @@
 require "pcaplua"
 
-p=pcaplua.new_live_capture ('wlan0')
+p,devname=pcaplua.new_live_capture ()
+print ('new_live_capture:', p, devname)
 p:set_filter ('port not 22')
