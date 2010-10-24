@@ -39,9 +39,27 @@ static int set_filter (lua_State *L) {
 	return 0;
 }
 
+/** gets one packet
+ * @memberof pcap
+ * @return packet data, timestamp, offwire length
+ */
+static int next (lua_State *L) {
+	l_pcap *p = check_pcap(L,1);
+	struct pcap_pkthdr ph;
+	const u_char *d = pcap_next (p->pcap, &ph);
+	if (!d) {
+		return 0;
+	}
+	lua_pushlstring (L, (char *)d, ph.caplen);
+	lua_pushnumber (L, ph.ts.tv_sec + ph.ts.tv_usec/1000000.0);
+	lua_pushinteger (L, ph.len);
+	return 3;
+}
+
 
 static const luaL_Reg pcap_methods[] = {
 	{ "set_filter", set_filter },
+	{ "next", next },
 
 	{ NULL, NULL },
 };
