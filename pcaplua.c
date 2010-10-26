@@ -5,6 +5,19 @@
 #include <lauxlib.h>
 
 #include <pcap.h>
+#include "headers.h"
+
+
+#define set_field(L,k,v,type)	do{							\
+								lua_pushliteral(L,k);		\
+								lua_push ## type (L,(v));	\
+								lua_rawset(L,-3);			\
+							} while(0)
+#define set_field_lstr(L,k,v,l)	do{							\
+								lua_pushliteral(L,k);		\
+								lua_pushlstring (L,(const char*)(v),(l));	\
+								lua_rawset(L,-3);			\
+							} while(0)
 
 /*------------ capture device ----------*/
 
@@ -56,10 +69,32 @@ static int next (lua_State *L) {
 	return 3;
 }
 
+/** injects a packet in the stream
+ * @memberof pcap
+ * @param data packet's data to send
+ * @return (true,unsent data) on success; (nil,error) on failure
+ */
+static int inject (lua_State *L) {
+	l_pcap *p = check_pcap (L,1);
+	size_t dz;
+	const char *d = luaL_checklstring (L,2,&dz);
+
+	int ret = pcap_inject (p->pcap, d, dz);
+	if (ret <0) {
+		lua_pushnil (L);
+		lua_pushstring (L, p->errbuf);
+		return 2;
+	}
+	lua_pushboolean (L,1);
+	lua_pushlstring (L, d+ret, dz-ret);
+	return 2;
+}
+
 
 static const luaL_Reg pcap_methods[] = {
 	{ "set_filter", set_filter },
 	{ "next", next },
+	{ "inject", inject },
 
 	{ NULL, NULL },
 };
@@ -89,10 +124,31 @@ static int new_live_capture (lua_State *L) {
 	return 2;
 }
 
+/** decodes ethernet header
+ * @param packet
+ * @param optional table to fill with header data
+ * @return table with decoded header data
+ */
+static int decode_ethernet (lua_State *L) {
+	size_t sz=0;
+	const char *pd = luaL_checklstring (L, 1, &sz);
+	if (!lua_istable(L,2)) {
+		lua_settop (L,1);
+		lua_createtable (L, 0, 4);
+	}
+	const struct sniff_ethernet *ethernet = (struct sniff_ethernet*)(pd);
+	set_field_lstr (L, "dst", ethernet->ether_dhost, ETHER_ADDR_LEN);
+	set_field_lstr (L, "src", ethernet->ether_shost, ETHER_ADDR_LEN);
+	set_field (L, "type", ethernet->ether_type, integer);
+	set_field_lstr (L, "content", pd+SIZE_ETHERNET, sz-SIZE_ETHERNET);
+	return 1;
+}
+
 
 
 static const luaL_Reg module_functs[] = {
 	{ "new_live_capture", new_live_capture },
+	{ "decode_ethernet", decode_ethernet },
 
 	{ NULL, NULL },
 };
