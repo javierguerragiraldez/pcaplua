@@ -124,6 +124,12 @@ static int new_live_capture (lua_State *L) {
 	return 2;
 }
 
+static void use_or_create_table (lua_State *L, int na, int nh) {
+	if (!lua_istable (L,-1)) {
+		lua_pop (L, 1);
+		lua_createtable (L, na, nh);
+	}
+}
 /** decodes ethernet header
  * @param packet
  * @param optional table to fill with header data
@@ -132,11 +138,10 @@ static int new_live_capture (lua_State *L) {
 static int decode_ethernet (lua_State *L) {
 	size_t sz=0;
 	const char *pd = luaL_checklstring (L, 1, &sz);
-	if (!lua_istable(L,2)) {
-		lua_settop (L,1);
-		lua_createtable (L, 0, 4);
-	}
+	use_or_create_table (L, 0, 4);
+
 	const struct sniff_ethernet *ethernet = (struct sniff_ethernet*)(pd);
+
 	set_field_lstr (L, "dst", ethernet->ether_dhost, ETHER_ADDR_LEN);
 	set_field_lstr (L, "src", ethernet->ether_shost, ETHER_ADDR_LEN);
 	set_field (L, "type", ethernet->ether_type, integer);
