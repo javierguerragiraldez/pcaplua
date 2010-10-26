@@ -38,3 +38,8 @@ hexdump (d)
 local eth = pcaplua.decode_ethernet (d)
 print (hexval(eth.src), hexval(eth.dst), eth.type)
 hexdump (eth.content)
+
+local ip = pcaplua.decode_ip (eth.content)
+for k,v in pairs(ip) do
+	print (k,v)
+end

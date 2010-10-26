@@ -1,5 +1,6 @@
 
 #include <stdio.h>
+#include <arpa/inet.h>
 
 #include <lua.h>
 #include <lauxlib.h>
@@ -149,11 +150,44 @@ static int decode_ethernet (lua_State *L) {
 	return 1;
 }
 
+/** decodes IP header
+ * @param packet
+ * @param otional table to fill with header data
+ * @return table with decoded header data
+ */
+static int decode_ip (lua_State *L) {
+	size_t sz=0;
+	const char *pd = luaL_checklstring (L, 1, &sz);
+	use_or_create_table (L, 0, 14);
 
+	struct sniff_ip *hdr = (struct sniff_ip*)(pd);
+	hdr->ip_len = ntohs (hdr->ip_len);
+	hdr->ip_id  = ntohs (hdr->ip_id);
+	hdr->ip_off = ntohs (hdr->ip_off);
+	hdr->ip_sum = ntohs (hdr->ip_sum);
+
+	set_field (L, "header_size", IP_HL(hdr)*4, integer);
+	set_field (L, "version", IP_V(hdr), integer);
+	set_field (L, "ToS", hdr->ip_tos, integer);
+	set_field (L, "total_length", hdr->ip_len, integer);
+	set_field (L, "id", hdr->ip_id, integer);
+	set_field (L, "dont_fragment", (hdr->ip_off & IP_DF), boolean);
+	set_field (L, "more_fragments", (hdr->ip_off & IP_MF), boolean);
+	set_field (L, "fragment_offset", (hdr->ip_off & IP_OFFMASK), integer);
+	set_field (L, "ttl", hdr->ip_ttl, integer);
+	set_field (L, "proto", hdr->ip_p, integer);
+	set_field (L, "checksum", hdr->ip_sum, integer);
+	set_field (L, "src", inet_ntoa (hdr->ip_src), string);
+	set_field (L, "dst", inet_ntoa (hdr->ip_dst), string);
+	set_field_lstr (L, "content", pd, sz);
+
+	return 1;
+}
 
 static const luaL_Reg module_functs[] = {
 	{ "new_live_capture", new_live_capture },
 	{ "decode_ethernet", decode_ethernet },
+	{ "decode_ip", decode_ip },
 
 	{ NULL, NULL },
 };
