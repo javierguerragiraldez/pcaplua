@@ -166,9 +166,9 @@ static int decode_ip (lua_State *L) {
 	hdr->ip_off = ntohs (hdr->ip_off);
 	hdr->ip_sum = ntohs (hdr->ip_sum);
 
-	size_t pktsize = IP_HL(hdr)*4;
+	size_t hdrsize = IP_HL(hdr)*4;
 
-	set_field (L, "header_size", pktsize, integer);
+	set_field (L, "header_size", hdrsize, integer);
 	set_field (L, "version", IP_V(hdr), integer);
 	set_field (L, "ToS", hdr->ip_tos, integer);
 	set_field (L, "total_length", hdr->ip_len, integer);
@@ -181,7 +181,60 @@ static int decode_ip (lua_State *L) {
 	set_field (L, "checksum", hdr->ip_sum, integer);
 	set_field (L, "src", inet_ntoa (hdr->ip_src), string);
 	set_field (L, "dst", inet_ntoa (hdr->ip_dst), string);
-	set_field_lstr (L, "content", pd+pktsize, sz-pktsize);
+	set_field_lstr (L, "content", pd+hdrsize, sz-hdrsize);
+
+	return 1;
+}
+
+/** decodes TCP header
+ * @param packet
+ * @param optional table to fill with header data
+ * @return table with decoded header data
+ */
+static int decode_tcp (lua_State *L) {
+	size_t sz=0;
+	const char *pd = luaL_checklstring (L, 1, &sz);
+	use_or_create_table (L, 0, 15);
+
+	struct sniff_tcp *hdr = (struct sniff_tcp*)(pd);
+	size_t hdrsize = TH_OFF(hdr)*4;
+
+	set_field (L, "source_port", ntohs(hdr->th_sport), integer);
+	set_field (L, "dest_port", ntohs(hdr->th_dport), integer);
+	set_field (L, "seq_num", ntohl(hdr->th_seq), integer);
+	set_field (L, "ack", ntohl(hdr->th_ack), integer);
+	set_field (L, "offset", hdrsize, integer);
+	set_field (L, "f_fin", hdr->th_flags & TH_FIN, boolean);
+	set_field (L, "f_syn", hdr->th_flags & TH_SYN, boolean);
+	set_field (L, "f_reset", hdr->th_flags & TH_RST, boolean);
+	set_field (L, "f_push", hdr->th_flags & TH_PUSH, boolean);
+	set_field (L, "f_ack", hdr->th_flags & TH_ACK, boolean);
+	set_field (L, "f_urg", hdr->th_flags & TH_URG, boolean);
+	set_field (L, "window", ntohs (hdr->th_win), integer);
+	set_field (L, "checksum", ntohs(hdr->th_sum), integer);
+	set_field (L, "urgent_pointer", ntohs (hdr->th_urp), integer);
+	set_field_lstr (L, "content", pd+hdrsize, sz-hdrsize);
+
+	return 1;
+}
+
+/** decodes UDP header
+ * @param packet
+ * @param optional table to fill with header data
+ * @return table with decoded header data
+ */
+static int decode_udp (lua_State *L) {
+	size_t sz = 0;
+	const char *pd = luaL_checklstring (L, 1, &sz);
+	use_or_create_table (L, 0, 5);
+
+	struct sniff_udp *hdr = (struct sniff_udp*)(pd);
+
+	set_field (L, "source_port", ntohs (hdr->uh_sport), integer);
+	set_field (L, "dest_port", ntohs (hdr->uh_dport), integer);
+	set_field (L, "length", ntohs (hdr->uh_len), integer);
+	set_field (L, "checksum", ntohs (hdr->uh_sum), integer);
+	set_field_lstr (L, "content", pd+SIZE_UDP, sz-SIZE_UDP);
 
 	return 1;
 }
@@ -190,6 +243,8 @@ static const luaL_Reg module_functs[] = {
 	{ "new_live_capture", new_live_capture },
 	{ "decode_ethernet", decode_ethernet },
 	{ "decode_ip", decode_ip },
+	{ "decode_tcp", decode_tcp },
+	{ "decode_udp", decode_udp },
 
 	{ NULL, NULL },
 };

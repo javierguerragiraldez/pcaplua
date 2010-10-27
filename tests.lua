@@ -3,7 +3,7 @@ require "pcaplua"
 local function hexdump(s)
 	local sz = string.len(s)
 	for l = 1,sz,16 do
-		io.write (string.format ("%04X: ", l))
+		io.write (string.format ("%04X: ", l-1))
 		for l2 = l, math.min(sz,l+15) do
 			if (l2-l)==8 then io.write ' ' end
 			io.write (string.format ('%02X ', string.byte(s,l2)))
@@ -35,11 +35,39 @@ hexdump (d)
 -- 	print (p:next())
 -- end
 
+print ('------ ethernet frame ---------')
 local eth = pcaplua.decode_ethernet (d)
 print (hexval(eth.src), hexval(eth.dst), eth.type)
 hexdump (eth.content)
 
-local ip = pcaplua.decode_ip (eth.content)
-for k,v in pairs(ip) do
-	print (k,v)
+if eth.type == 8 then
+	print ('-------- IP packet --------')
+	local ip = pcaplua.decode_ip (eth.content)
+	for k,v in pairs(ip) do
+		if k ~= 'content' then
+			print (k,v)
+		end
+	end
+	hexdump (ip.content)
+
+	local tcp
+	if ip.proto == 6 then
+		print ('----- TCP packet ------')
+		tcp = pcaplua.decode_tcp (ip.content)
+		for k,v in pairs(tcp) do
+			if k ~= 'content' then
+				print (k,v)
+			end
+		end
+		hexdump (tcp.content)
+	end
+
+	local udp
+	if ip.proto == 17 then
+		print ('------- UDP packet --------')
+		udp = pcaplua.decode_udp (ip.content)
+		print (string.format ('sport:%d, dport:%d, len:%d, chksum:%d',
+				udp.source_port, udp.dest_port, udp.length, udp.checksum))
+		hexdump (udp.content)
+	end
 end
