@@ -166,7 +166,9 @@ static int decode_ip (lua_State *L) {
 	hdr->ip_off = ntohs (hdr->ip_off);
 	hdr->ip_sum = ntohs (hdr->ip_sum);
 
-	set_field (L, "header_size", IP_HL(hdr)*4, integer);
+	size_t pktsize = IP_HL(hdr)*4;
+
+	set_field (L, "header_size", pktsize, integer);
 	set_field (L, "version", IP_V(hdr), integer);
 	set_field (L, "ToS", hdr->ip_tos, integer);
 	set_field (L, "total_length", hdr->ip_len, integer);
@@ -179,7 +181,7 @@ static int decode_ip (lua_State *L) {
 	set_field (L, "checksum", hdr->ip_sum, integer);
 	set_field (L, "src", inet_ntoa (hdr->ip_src), string);
 	set_field (L, "dst", inet_ntoa (hdr->ip_dst), string);
-	set_field_lstr (L, "content", pd, sz);
+	set_field_lstr (L, "content", pd+pktsize, sz-pktsize);
 
 	return 1;
 }
