@@ -24,6 +24,7 @@
 
 typedef struct l_pcap {
 	pcap_t *pcap;
+	int callback;
 	char errbuf[PCAP_ERRBUF_SIZE];
 } l_pcap;
 #define L_PCAP	"pcap obj"
@@ -70,6 +71,51 @@ static int next (lua_State *L) {
 	return 3;
 }
 
+/** get the callback to be used for packet analysing
+ * @memberof pcap
+ * @return previous callback
+ */
+static int getcallback (lua_State *L) {
+	l_pcap *p = check_pcap (L, 1);
+	if (p->callback == LUA_REFNIL) {
+		lua_pushnil (L);
+	} else {
+		lua_rawgeti (L, LUA_REGISTRYINDEX, p->callback);
+	}
+	return 1;
+}
+
+/** set the callback to be used for packet analysing
+ * @memberof pcap
+ * @param callback
+ */
+static int setcallback (lua_State *L) {
+	l_pcap *p = check_pcap (L, 1);
+	lua_settop (L,2);
+	luaL_unref (L, LUA_REGISTRYINDEX, p->callback);
+	p->callback = luaL_ref (L, LUA_REGISTRYINDEX);
+	return 0;
+}
+
+
+
+/** main capture loop
+ * @memberof pcap
+ * @param n max number of packets to capture. nil->infinite
+ */
+static int loop (lua_State *L) {
+	l_pcap *p = check_pcap (L, 1);
+	int cnt = luaL_optint (L, 2, 0);
+
+	int ret = pcap_loop (p->pcap, cnt, loop_callback, (u_char*)p);
+	if (ret >= 0) {
+		lua_pushinteger (L, ret);
+		return 1;
+	} else if (ret == -1) {
+		return luaL_error (L, p->errbuf);
+	}
+}
+
 /** injects a packet in the stream
  * @memberof pcap
  * @param data packet's data to send
@@ -95,6 +141,8 @@ static int inject (lua_State *L) {
 static const luaL_Reg pcap_methods[] = {
 	{ "set_filter", set_filter },
 	{ "next", next },
+	{ "getcallback", getcallback },
+	{ "setcallback", setcallback },
 	{ "inject", inject },
 
 	{ NULL, NULL },
@@ -118,6 +166,7 @@ static int new_live_capture (lua_State *L) {
 	if ((p->pcap = pcap_open_live (dev, 65535, lua_toboolean(L,2), 0, p->errbuf)) == NULL) {
 		return luaL_error (L, "error creating capture \"%s\": %s", dev, p->errbuf);
 	}
+	p->callback = LUA_REFNIL;
 
 	luaL_getmetatable (L, L_PCAP);
 	lua_setmetatable (L, -2);
