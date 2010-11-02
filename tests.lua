@@ -71,3 +71,16 @@ if eth.type == 8 then
 		hexdump (udp.content)
 	end
 end
+
+local count = 0
+p:setcallback (function (d,t,l)
+	count = count+1
+	print (string.format ('------ ethernet frame #%d ---------', count))
+	local eth = pcaplua.decode_ethernet (d)
+	print (hexval(eth.src), hexval(eth.dst), eth.type)
+	hexdump (eth.content)
+	if count > 3 then
+		return 'fin'
+	end
+end)
+print (p:loop ())

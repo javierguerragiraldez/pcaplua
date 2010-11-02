@@ -24,6 +24,7 @@
 
 typedef struct l_pcap {
 	pcap_t *pcap;
+	lua_State *L;
 	int callback;
 	char errbuf[PCAP_ERRBUF_SIZE];
 } l_pcap;
@@ -99,21 +100,47 @@ static int setcallback (lua_State *L) {
 
 
 
+static void loop_callback (u_char *args, const struct pcap_pkthdr *ph, const u_char *packet) {
+	l_pcap *p = (l_pcap *)args;
+	int prevtop = lua_gettop (p->L);
+	lua_rawgeti (p->L, LUA_REGISTRYINDEX, p->callback);
+	
+	lua_pushlstring (p->L, (const char *)packet, ph->caplen);
+	lua_pushnumber (p->L, ph->ts.tv_sec + ph->ts.tv_usec/1000000.0);
+	lua_pushinteger (p->L, ph->len);
+	
+	int ret = lua_pcall (p->L, 3, LUA_MULTRET, 0);
+	if (ret || lua_gettop(p->L) > prevtop) {
+		pcap_breakloop (p->pcap);
+	}
+}
+
 /** main capture loop
  * @memberof pcap
  * @param n max number of packets to capture. nil->infinite
  */
 static int loop (lua_State *L) {
 	l_pcap *p = check_pcap (L, 1);
+	p->L = L;
 	int cnt = luaL_optint (L, 2, 0);
+	int prevtop = lua_gettop (L);
 
 	int ret = pcap_loop (p->pcap, cnt, loop_callback, (u_char*)p);
+	int nresults = lua_gettop(L)-prevtop;
+	printf ("ret: %d, nresults: %d\n", ret, nresults);
 	if (ret >= 0) {
 		lua_pushinteger (L, ret);
-		return 1;
+		lua_insert (L, nresults);
+		return nresults+1;
 	} else if (ret == -1) {
 		return luaL_error (L, p->errbuf);
+	} else if (ret == -2) {
+		lua_pushnil (L);
+		lua_insert (L, nresults);
+		return nresults+1;
 	}
+	
+	return 0;
 }
 
 /** injects a packet in the stream
@@ -143,6 +170,7 @@ static const luaL_Reg pcap_methods[] = {
 	{ "next", next },
 	{ "getcallback", getcallback },
 	{ "setcallback", setcallback },
+	{ "loop", loop },
 	{ "inject", inject },
 
 	{ NULL, NULL },
@@ -166,6 +194,7 @@ static int new_live_capture (lua_State *L) {
 	if ((p->pcap = pcap_open_live (dev, 65535, lua_toboolean(L,2), 0, p->errbuf)) == NULL) {
 		return luaL_error (L, "error creating capture \"%s\": %s", dev, p->errbuf);
 	}
+	p->L = L;
 	p->callback = LUA_REFNIL;
 
 	luaL_getmetatable (L, L_PCAP);
