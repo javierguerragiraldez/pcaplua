@@ -104,11 +104,11 @@ static void loop_callback (u_char *args, const struct pcap_pkthdr *ph, const u_c
 	l_pcap *p = (l_pcap *)args;
 	int prevtop = lua_gettop (p->L);
 	lua_rawgeti (p->L, LUA_REGISTRYINDEX, p->callback);
-	
+
 	lua_pushlstring (p->L, (const char *)packet, ph->caplen);
 	lua_pushnumber (p->L, ph->ts.tv_sec + ph->ts.tv_usec/1000000.0);
 	lua_pushinteger (p->L, ph->len);
-	
+
 	int ret = lua_pcall (p->L, 3, LUA_MULTRET, 0);
 	if (ret || lua_gettop(p->L) > prevtop) {
 		pcap_breakloop (p->pcap);
@@ -139,7 +139,7 @@ static int loop (lua_State *L) {
 		lua_insert (L, nresults);
 		return nresults+1;
 	}
-	
+
 	return 0;
 }
 
