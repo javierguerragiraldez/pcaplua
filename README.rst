@@ -13,7 +13,7 @@ Module Functions
 
 Creates a new capture object.  The first parameter is the name of the network device to be used for packet capture.  If omitted, the first one available to the user is selected, as returned by ``pcap_lookupdev()``.  If the second parameter is committed, **nil** or **false**, the device is **not** put on promisc mode. (Note that it could already be on that mode).
 
-If successful, returns the capture object created, and a string with the device name used.  On failure, raises an error with a (hopefully) relevant message.
+If successful, returns the capture object created, and a string with the device name used.  On failure, returns **nil** and a (hopefully) relevant message.
 
 
 **decode_ethernet (packet [, table])**
@@ -37,7 +37,7 @@ Capture Object Methods
 
 **cap:set_filter (filtercode)**
 
-Compiles and sets the filter code.  Returns nothing.  Can raise errors on missing parameter, filter compiling, and installing the filter on the capture object.
+Compiles and sets the filter code.  On success return **true**, if there's an error because of a missing parameter, filter compilation or installation, returns **nil** and an error message.
 
 **cap:next ()**
 
