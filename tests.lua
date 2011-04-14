@@ -26,6 +26,13 @@ end
 
 p,devname=pcaplua.new_live_capture ()
 print ('new_live_capture:', p, devname)
+
+do
+	local n,err = p:set_filter('not a filter')
+	assert (not n, 'should fail!')
+	print ('rightful error:', err)
+end
+
 p:set_filter ('port not 22')
 
 local d,t,l = p:next()

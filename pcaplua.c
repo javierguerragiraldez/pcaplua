@@ -32,6 +32,15 @@ typedef struct l_pcap {
 #define check_pcap(L,i)	((l_pcap *)luaL_checkudata (L,i,L_PCAP))
 
 
+static int fail_msg (lua_State *L, const char *fmt, ...) {
+	va_list argp;
+	va_start(argp, fmt);
+	lua_pushnil(L);
+	lua_pushvfstring(L, fmt, argp);
+	va_end(argp);
+	return 2;
+}
+
 /* capture device methods */
 /** compiles and installs a filter
  * @memberof pcap
@@ -47,12 +56,13 @@ static int set_filter (lua_State *L) {
 	filtstr = luaL_checkstring (L, 2);
 
 	if (pcap_compile (p->pcap, &fp, filtstr, 1, PCAP_NETMASK_UNKNOWN) == -1) {
-		return luaL_error (L, "error compiling \"%s\": %s", filtstr, pcap_geterr(p->pcap));
+		return fail_msg (L, "error compiling \"%s\": %s", filtstr, pcap_geterr(p->pcap));
 	}
 	if (pcap_setfilter (p->pcap, &fp) == -1) {
-		return luaL_error (L, "error installing filter \"%s\": %s", filtstr, p->errbuf);
+		return fail_msg (L, "error installing filter \"%s\": %s", filtstr, p->errbuf);
 	}
-	return 0;
+	lua_pushboolean (L, 1);
+	return 1;
 }
 
 /** gets one packet
@@ -127,13 +137,13 @@ static int loop (lua_State *L) {
 
 	int ret = pcap_loop (p->pcap, cnt, loop_callback, (u_char*)p);
 	int nresults = lua_gettop(L)-prevtop;
-	printf ("ret: %d, nresults: %d\n", ret, nresults);
+// 	printf ("ret: %d, nresults: %d\n", ret, nresults);
 	if (ret >= 0) {
 		lua_pushinteger (L, ret);
 		lua_insert (L, nresults);
 		return nresults+1;
 	} else if (ret == -1) {
-		return luaL_error (L, p->errbuf);
+		return fail_msg (L, p->errbuf);
 	} else if (ret == -2) {
 		lua_pushnil (L);
 		lua_insert (L, nresults);
@@ -165,6 +175,7 @@ static int inject (lua_State *L) {
 }
 
 
+
 static const luaL_Reg pcap_methods[] = {
 	{ "set_filter", set_filter },
 	{ "next", next },
@@ -188,11 +199,11 @@ static int new_live_capture (lua_State *L) {
 		dev = pcap_lookupdev (p->errbuf);
 	}
 	if (!dev) {
-		return luaL_error (L, "no device: %s", p->errbuf);
+		return fail_msg (L, "no device: %s", p->errbuf);
 	}
 	//TODO: better capture size and to_ms
 	if ((p->pcap = pcap_open_live (dev, 65535, lua_toboolean(L,2), 0, p->errbuf)) == NULL) {
-		return luaL_error (L, "error creating capture \"%s\": %s", dev, p->errbuf);
+		return fail_msg (L, "error creating capture \"%s\": %s", dev, p->errbuf);
 	}
 	p->L = L;
 	p->callback = LUA_REFNIL;
