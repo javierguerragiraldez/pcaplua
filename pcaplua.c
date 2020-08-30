@@ -8,6 +8,15 @@
 #include <pcap.h>
 #include "headers.h"
 
+#if !defined(PCAP_NETMASK_UNKNOWN)
+/*
+ * Value to pass to pcap_compile() as the netmask if you don't know what
+ * the netmask is. (necessary in machines with old libpcap).
+ *
+ */
+#define PCAP_NETMASK_UNKNOWN 0xffffffff
+#endif
+
 
 #define set_field(L,k,v,type)	do{							\
 								lua_pushliteral(L,k);		\
@@ -80,6 +89,41 @@ static int next (lua_State *L) {
 	lua_pushnumber (L, ph.ts.tv_sec + ph.ts.tv_usec/1000000.0);
 	lua_pushinteger (L, ph.len);
 	return 3;
+}
+
+/** gets one packet
+ * @memberof pcap
+ * @return packet data, timestamp, offwire length
+ */
+static int next_ex (lua_State *L) {
+	l_pcap *p = check_pcap(L,1);
+	struct pcap_pkthdr *ph;
+	const u_char *d;
+	int res = pcap_next_ex (p->pcap, &ph, &d);
+	if (0 == res) {
+		// live capture packet buffer timeout
+		lua_pushboolean(L, 1);
+		lua_pushnil(L); // no packet
+		return 0;
+	} else if (1 == res) {
+		// success
+		lua_pushboolean(L, 1);
+		lua_pushlstring (L, (char *)d, ph->caplen);
+		lua_pushnumber (L, ph->ts.tv_sec + ph->ts.tv_usec/1000000.0);
+		lua_pushinteger (L, ph->len);
+		return 4;
+	} else if (PCAP_ERROR == res) {
+		lua_pushboolean(L, 0);
+		lua_pushstring(L, pcap_geterr(p->pcap));
+		return 2;
+	} else if (PCAP_ERROR_BREAK == res) {
+		// no more packets
+		lua_pushboolean (L, 1); // success
+		lua_pushnil(L); // no packet
+		return 2;
+	}
+	// just in case
+	return 0;
 }
 
 /** get the callback to be used for packet analysing
@@ -179,6 +223,7 @@ static int inject (lua_State *L) {
 static const luaL_Reg pcap_methods[] = {
 	{ "set_filter", set_filter },
 	{ "next", next },
+	{ "next_ex", next_ex },
 	{ "getcallback", getcallback },
 	{ "setcallback", setcallback },
 	{ "loop", loop },
@@ -212,6 +257,31 @@ static int new_live_capture (lua_State *L) {
 	lua_setmetatable (L, -2);
 	lua_pushstring (L, dev);
 	return 2;
+}
+
+/** creates a file capture handle
+ * @param file the file to open
+ * @return pcap userdata
+ */
+static int open_offline(lua_State *L) {
+	int n = lua_gettop(L);
+	if(n < 1) {
+		return fail_msg (L, "Param file is required");
+	}
+
+	const char *file = lua_tostring(L, 1);
+
+	l_pcap *p = lua_newuserdata(L, sizeof (l_pcap));
+	p->pcap = pcap_open_offline(file, p->errbuf);
+	if (p->pcap == NULL) {
+		return fail_msg (L, "Could not open file %s: %s", file, p->errbuf);
+	}
+	p->L = L;
+	p->callback = LUA_REFNIL;
+
+	luaL_getmetatable (L, L_PCAP);
+	lua_setmetatable (L, -2);
+	return 1;
 }
 
 static void use_or_create_table (lua_State *L, int na, int nh) {
@@ -330,6 +400,7 @@ static int decode_udp (lua_State *L) {
 
 static const luaL_Reg module_functs[] = {
 	{ "new_live_capture", new_live_capture },
+	{ "open_offline", open_offline },
 	{ "decode_ethernet", decode_ethernet },
 	{ "decode_ip", decode_ip },
 	{ "decode_tcp", decode_tcp },
