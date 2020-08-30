@@ -51,6 +51,19 @@ static int fail_msg (lua_State *L, const char *fmt, ...) {
 }
 
 /* capture device methods */
+
+/** get datalink
+ * @memberof pcap
+ * @return datalink
+*/
+static int get_datalink(lua_State *L) {
+	l_pcap *p;
+	p = check_pcap (L, 1);
+	int dl = pcap_datalink(p->pcap);
+	lua_pushinteger(L, dl);
+	return 1;
+}	
+
 /** compiles and installs a filter
  * @memberof pcap
  * @param filter filter string in tcpdump syntax
@@ -221,6 +234,7 @@ static int inject (lua_State *L) {
 
 
 static const luaL_Reg pcap_methods[] = {
+	{ "get_datalink", get_datalink },
 	{ "set_filter", set_filter },
 	{ "next", next },
 	{ "next_ex", next_ex },

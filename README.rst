@@ -41,6 +41,10 @@ if, for example, all you need is the source IP number
 Capture Object Methods
 ----------------------
 
+**cap:get_datalink ()**
+
+Returns the capture datalink (ETHERNET, Linux Cooked SLL etc)
+
 **cap:set_filter (filtercode)**
 
 Compiles and sets the filter code.  On success return **true**, if there's an error because of a missing parameter, filter compilation or installation, returns **nil** and an error message.

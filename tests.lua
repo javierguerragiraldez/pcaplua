@@ -98,6 +98,9 @@ if not p then
 	error(err)
 end
 
+dl = p:get_datalink()
+assert(dl == 1) -- ETHERNET
+
 while true do
 	local success, d,t,l = p:next_ex()
 
