@@ -102,12 +102,7 @@ dl = p:get_datalink()
 assert(dl == 1) -- ETHERNET
 
 while true do
-	local success, d,t,l = p:next_ex()
-
-	print(success)
-	if not success then
-		error("failed with" .. d)
-	end
+	local d,t,l = p:next()
 
 	if not d then
 		print("finished")

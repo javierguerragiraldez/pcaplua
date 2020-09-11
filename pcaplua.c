@@ -93,50 +93,29 @@ static int set_filter (lua_State *L) {
  */
 static int next (lua_State *L) {
 	l_pcap *p = check_pcap(L,1);
-	struct pcap_pkthdr ph;
-	const u_char *d = pcap_next (p->pcap, &ph);
-	if (!d) {
-		return 0;
-	}
-	lua_pushlstring (L, (char *)d, ph.caplen);
-	lua_pushnumber (L, ph.ts.tv_sec + ph.ts.tv_usec/1000000.0);
-	lua_pushinteger (L, ph.len);
-	return 3;
-}
-
-/** gets one packet
- * @memberof pcap
- * @return packet data, timestamp, offwire length
- */
-static int next_ex (lua_State *L) {
-	l_pcap *p = check_pcap(L,1);
 	struct pcap_pkthdr *ph;
 	const u_char *d;
 	int res = pcap_next_ex (p->pcap, &ph, &d);
-	if (0 == res) {
+	switch(res) {
+	case 0:
 		// live capture packet buffer timeout
-		lua_pushboolean(L, 1);
-		lua_pushnil(L); // no packet
 		return 0;
-	} else if (1 == res) {
+	case 1:
 		// success
-		lua_pushboolean(L, 1);
 		lua_pushlstring (L, (char *)d, ph->caplen);
 		lua_pushnumber (L, ph->ts.tv_sec + ph->ts.tv_usec/1000000.0);
 		lua_pushinteger (L, ph->len);
-		return 4;
-	} else if (PCAP_ERROR == res) {
-		lua_pushboolean(L, 0);
+		return 3;
+	case PCAP_ERROR:
 		lua_pushstring(L, pcap_geterr(p->pcap));
-		return 2;
-	} else if (PCAP_ERROR_BREAK == res) {
-		// no more packets
-		lua_pushboolean (L, 1); // success
-		lua_pushnil(L); // no packet
-		return 2;
+		lua_error(L);
+	case PCAP_ERROR_BREAK:
+		// no more packets from file
+		return 0;
+	default:
+		// pcap_next_ex is not expected to return anthing else but just in case
+		return 0;
 	}
-	// just in case
-	return 0;
 }
 
 /** get the callback to be used for packet analysing
@@ -237,7 +216,6 @@ static const luaL_Reg pcap_methods[] = {
 	{ "get_datalink", get_datalink },
 	{ "set_filter", set_filter },
 	{ "next", next },
-	{ "next_ex", next_ex },
 	{ "getcallback", getcallback },
 	{ "setcallback", setcallback },
 	{ "loop", loop },

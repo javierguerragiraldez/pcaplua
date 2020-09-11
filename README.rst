@@ -54,14 +54,7 @@ Compiles and sets the filter code.  On success return **true**, if there's an er
 Captures one packet from the capture object.  Can block indefinitely until an object complying with the filter code (if any) is captured.
 
 Returns the packet data as string (ready for ``decode_ethernet()``), the packet's capture time as a float (with microsecond resolution), and the wire length of the packet.
-
-**cap:next_ex()**
-
-Works and returns the same as cap:next() but preceeded by success value.
-So it returns either of:
-  - true, packet_data, packet_capture_time, packet_length
-  - true, nil -- no packet
-  - false, some_error_message
+In case of error, it throws an exception with the error string.
 
 **cap:getcallback ()**
 
