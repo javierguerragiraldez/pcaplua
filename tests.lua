@@ -91,3 +91,41 @@ p:setcallback (function (d,t,l)
 	end
 end)
 print (p:loop ())
+
+
+p,err=pcaplua.open_offline('./test.pcap')
+if not p then
+	error(err)
+end
+
+dl = p:get_datalink()
+assert(dl == 1) -- ETHERNET
+
+while true do
+	local d,t,l = p:next()
+
+	if not d then
+		print("finished")
+		break
+	end
+
+	print (string.format("%s (%X,%d):\n", os.date('%c',t),l,l))
+
+	local eth = pcaplua.decode_ethernet (d)
+
+	local ip = pcaplua.decode_ip (eth.content)
+	for k,v in pairs(ip) do
+		if k ~= 'content' then
+			print (k,v)
+		end
+	end
+
+	local udp
+	if ip.proto == 17 then
+		print ('------- UDP packet --------')
+		udp = pcaplua.decode_udp (ip.content)
+		print (string.format ('sport:%d, dport:%d, len:%d, chksum:%d',
+				udp.source_port, udp.dest_port, udp.length, udp.checksum))
+		hexdump (udp.content)
+	end
+end

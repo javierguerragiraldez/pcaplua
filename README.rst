@@ -15,6 +15,12 @@ Creates a new capture object.  The first parameter is the name of the network de
 
 If successful, returns the capture object created, and a string with the device name used.  On failure, returns **nil** and a (hopefully) relevant message.
 
+**pcaplua.open_offline(file)**
+
+Creates a new capture object.  The first parameter is the path to the pcap file to be opened.
+
+If successful, returns the capture object created.  On failure, returns **nil** and a (hopefully) relevant message.
+
 
 **decode_ethernet (packet [, table])**
 
@@ -35,6 +41,10 @@ if, for example, all you need is the source IP number
 Capture Object Methods
 ----------------------
 
+**cap:get_datalink ()**
+
+Returns the capture datalink (ETHERNET, Linux Cooked SLL etc)
+
 **cap:set_filter (filtercode)**
 
 Compiles and sets the filter code.  On success return **true**, if there's an error because of a missing parameter, filter compilation or installation, returns **nil** and an error message.
@@ -44,6 +54,7 @@ Compiles and sets the filter code.  On success return **true**, if there's an er
 Captures one packet from the capture object.  Can block indefinitely until an object complying with the filter code (if any) is captured.
 
 Returns the packet data as string (ready for ``decode_ethernet()``), the packet's capture time as a float (with microsecond resolution), and the wire length of the packet.
+In case of error, it throws an exception with the error string.
 
 **cap:getcallback ()**
 
